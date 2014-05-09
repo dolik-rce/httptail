@@ -1,0 +1,32 @@
+### GLOBAL CONFIGURATION ###
+
+## interval between updates with -f, float value in seconds
+INTERVAL=1.0
+
+## default value of --count
+COUNT=2048
+
+## proxy settings
+# PROXY=""
+
+## additional options to curl (e.g. you can add "-u username:password" to use
+## authentication, and/or "-k" to allow insecure SSL connections)
+## Special value $(password_prompt) might be used if you don't want to store
+## plaintext password in this configuration file
+# OPTS="-k -u <username>:$(password_prompt)"
+
+
+### PRESETS ###
+
+## Presets override the global configuration when --preset option is used.
+## The variables are always in form <name>_<variable>. In addition to
+## the global variables, there are two more variables: FILE and SERVERS. 
+## See following example: 
+
+# example_SERVERS=( "http://example1.com" \
+#                   "http://example2.com" \
+#                   "http://example3.com" )
+# example_FILE="some/path/example.log"
+# example_PROXY="proxy.example.com:3128"
+# example_OPTS="-u username:password"
+

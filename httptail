@@ -1,0 +1,119 @@
+#!/bin/bash
+set -e 
+
+# function to print usage info
+usage () {
+    echo "Usage:"
+    echo "    $0 [OPTIONS] [URL ...]"
+    echo
+    echo "Options:"
+    echo "    -c|--config FILE      read defaults and options from FILE,"
+    echo "                          defaults to \$HOME/.httptailrc"
+    echo "    -p|--preset STRING    selects named preset from configuration file"
+    echo "    -n|--count NUM        output last NUM bytes, defaults to 4096"
+    echo "    -f|--follow           append data to the output as the file grows"
+    echo "    -i|--interval NUM     check for updates every NUM seconds, defaults to 1,"
+    echo "                          only makes sense with --follow"
+    echo "    -s|--start NUM        output starts at byte NUM, defaults to 0,"
+    echo "                          this option is mutually exclusive with --count"
+    echo "    -e|--end NUM          output ends at byte NUM, defaults to end of file,"
+    echo "                          this option is mutually exclusive with --count"
+    echo "    -P|--prepend          prefix each line with file url"
+    echo "    -h|--help             print help (this text)"
+    echo
+    echo "Examples:"
+    echo "    Print last 10kb:"
+    echo "        $0 -c 10240 'http://example.com/path/file.log'"
+    echo "    Print everything from byte 1024 to 2048:"
+    echo "        $0 -s 1024 -e 2048 'http://example.com/path/file.log'"
+    echo "    Print what was appended to the file on the server every 0.5s:"
+    echo "        $0 -f -i 0.5 'http://example.com/path/file.log'"
+    exit $1
+}
+
+prepend () {
+    $@ | sed "s|^|${urls[$i]}: |";
+}
+
+password_prompt () {
+  echo "Password required:" > /dev/stderr;
+  read -s pwd;
+  echo $pwd
+}
+
+# parse command line
+while true; do
+	case "$1" in
+		-f|--follow)   follow="1";     shift 1 ;;
+		-i|--interval) interval="$2";  shift 2 ;;
+		-s|--start)    start="$2";     shift 2 ;;
+		-e|--end)      end="$2";       shift 2 ;;
+		-n|--count)    count="$2";     shift 2 ;;
+		-c|--config)   config="$2";    shift 2 ;;
+		-p|--preset)   preset="${2}_"; shift 2 ;;
+		-P|--prepend)  prep="prepend"; shift 1 ;;
+		-h|--help)     usage 0 ;;
+		*)             break ;;
+	esac
+done
+urls="$@"
+
+# read configuration file
+[ -z "$config" ] && config="$HOME/.httptailrc"
+[ -z "$preset" ] && preset="\(\)"
+sedcmd=""
+for opt in PROXY OPTS INTERVAL COUNT; do sedcmd+="s/^[\t ]*\($opt=.*\)/\1/p;"; done
+eval $( sed ':a;N;$!ba;s/\\\n//g;s/#[^\n]*/\n/g;' $config | sed -n "$sedcmd" )
+sedcmd=""
+for opt in PROXY OPTS INTERVAL COUNT SERVERS FILE; do sedcmd+="s/^[\t ]*$preset\($opt=.*\)/\1/p;"; done
+eval $( sed ':a;N;$!ba;s/\\\n//g;s/#[^\n]*/\n/g;' $config | sed -n "$sedcmd" )
+
+#TODO: make this work when only one of FILE and SERVERS is defined
+if [ -n "$FILE" -a -n "$SERVERS" ]; then
+    urls=""
+    for s in ${SERVERS[@]}; do urls+=" $s/$FILE"; done
+fi
+
+# set proxy
+[ -n "$PROXY" ] && export http_proxy="$PROXY" && export https_proxy="$PROXY"
+
+# set interval
+[ -z "$interval" ] && interval="$INTERVAL"
+[ -z "$interval" ] && interval=1
+
+# prepare range
+[ "(" -n "$count" -o -n "$follow" ")" -a "(" -n "$start" -o -n "$end" ")" ] && usage 3
+
+[ -n "$COUNT" ] && bytes="-$COUNT" || bytes="-4096"
+[ -n "$count" ] && bytes="-$count"
+[ -n "$end" -a -z "$start" ] && bytes="0-$end"
+[ -n "$start" ] && bytes="$start-$end"
+
+# check that the range has correct values
+echo "$bytes" | grep -q "[0-9]*-[0-9]*" || usage 4
+
+# convert urls to array
+urls=( $urls )
+count=${#urls[@]}
+
+# get the data
+if [ "$follow" ]; then
+    for (( i=0; i<$count; i++ )); do
+        lastlen[$i]="$(curl -s $OPTS -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
+        lastlen[$i]="$(( ${lastlen[$i]} $bytes ))"
+    done;
+    while true; do
+        for (( i=0; i<$count; i++ )); do
+            len="$(curl -s $OPTS -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
+            [ "${lastlen[$i]}" != "$len" ] && $prep curl -s $OPTS -r "${lastlen[$i]}-" "${urls[$i]}"
+            lastlen[$i]="$len"
+        done
+        sleep $interval
+    done
+else
+    $prep curl -s $OPTS -r "$bytes" "${urls[$i]}"
+fi
+
+# add a newline, to make it look better in terminal in case when downloaded
+# data do not end with newline
+echo
