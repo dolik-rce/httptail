@@ -19,6 +19,7 @@ usage () {
     echo "    -e|--end NUM          output ends at byte NUM, defaults to end of file,"
     echo "                          this option is mutually exclusive with --count"
     echo "    -P|--prepend          prefix each line with file url"
+    echo "    -x|--debug            debug mode"
     echo "    -h|--help             print help (this text)"
     echo
     echo "Examples:"
