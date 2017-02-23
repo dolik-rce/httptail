@@ -41,32 +41,42 @@ password_prompt () {
   echo $pwd
 }
 
+set_conf () {
+    local N="${preset}_$1"
+    if [ "${!N}" ]; then
+        if [ "$2" = "array" ]; then
+            eval "$1=(\"\${$N[@]}\")"
+        else
+            eval "$1=\"\$$N\""
+        fi
+    fi
+}
+
 # parse command line
 while true; do
-	case "$1" in
-		-f|--follow)   follow="1";     shift 1 ;;
-		-i|--interval) interval="$2";  shift 2 ;;
-		-s|--start)    start="$2";     shift 2 ;;
-		-e|--end)      end="$2";       shift 2 ;;
-		-n|--count)    count="$2";     shift 2 ;;
-		-c|--config)   config="$2";    shift 2 ;;
-		-p|--preset)   preset="${2}_"; shift 2 ;;
-		-P|--prepend)  prep="prepend"; shift 1 ;;
-		-h|--help)     usage 0 ;;
-		*)             break ;;
-	esac
+    case "$1" in
+        -f|--follow)   follow="1";     shift 1 ;;
+        -i|--interval) interval="$2";  shift 2 ;;
+        -s|--start)    start="$2";     shift 2 ;;
+        -e|--end)      end="$2";       shift 2 ;;
+        -n|--count)    count="$2";     shift 2 ;;
+        -c|--config)   config="$2";    shift 2 ;;
+        -p|--preset)   preset="${2}"; shift 2 ;;
+        -P|--prepend)  prep="prepend"; shift 1 ;;
+        -h|--help)     usage 0 ;;
+        *)             break ;;
+    esac
 done
 urls="$@"
 
 # read configuration file
 [ -z "$config" ] && config="$HOME/.httptailrc"
-[ -z "$preset" ] && preset="\(\)"
-sedcmd=""
-for opt in PROXY OPTS INTERVAL COUNT; do sedcmd+="s/^[\t ]*\($opt=.*\)/\1/p;"; done
-eval $( sed ':a;N;$!ba;s/\\\n//g;s/#[^\n]*/\n/g;' $config | sed -n "$sedcmd" )
-sedcmd=""
-for opt in PROXY OPTS INTERVAL COUNT SERVERS FILE; do sedcmd+="s/^[\t ]*$preset\($opt=.*\)/\1/p;"; done
-eval $( sed ':a;N;$!ba;s/\\\n//g;s/#[^\n]*/\n/g;' $config | sed -n "$sedcmd" )
+. "$config"
+
+for opt in PROXY OPTS INTERVAL COUNT FILE; do
+    set_conf "$opt"
+done
+set_conf "SERVERS" "array"
 
 #TODO: make this work when only one of FILE and SERVERS is defined
 if [ -n "$FILE" -a -n "$SERVERS" ]; then
