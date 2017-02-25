@@ -13,7 +13,7 @@ COUNT=2048
 ## authentication, and/or "-k" to allow insecure SSL connections)
 ## Special value $(password_prompt) might be used if you don't want to store
 ## plaintext password in this configuration file
-# OPTS="-k -u <username>:$(password_prompt)"
+# OPTS=("-k" "-u<username>:$(password_prompt)")
 
 
 ### PRESETS ###

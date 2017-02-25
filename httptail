@@ -74,68 +74,79 @@ parse_args () {
 }
 
 configure () {
+    interval=1
+    config="$$HOME/.httptailrc"
+
     parse_args "$@"
-
-    # read configuration file
-    [ -z "$config" ] && config="$HOME/.httptailrc"
-    # shellcheck source=httptailrc
-    . "$config"
-
-    for opt in PROXY OPTS INTERVAL COUNT FILE; do
-    set_conf "$opt"
-    done
-    set_conf "SERVERS" "array"
-
-    #TODO: make this work when only one of FILE and SERVERS is defined
-    if [[ -n "$FILE" && -n "$SERVERS" ]]; then
-    urls=()
-    for s in "${SERVERS[@]}"; do tmp+="$s/$FILE"; done
-    fi
-
-    # set proxy
-    [ -n "$PROXY" ] && export http_proxy="$PROXY" && export https_proxy="$PROXY"
-
-    # set interval
-    [ -z "$interval" ] && interval="$INTERVAL"
-    [ -z "$interval" ] && interval=1
 
     if [[ "$count" && "$start" ]] || [[ "$count" && "$end" ]]; then
         echo "Wrong combination of parameters!" >> /dev/stderr
         usage 3;
     fi
+
+    # read configuration file
+    # shellcheck source=httptailrc
+    . "$config"
+
+    #set additional konfiguration based on preset passed on commandline
+    for opt in PROXY OPTS INTERVAL COUNT FILE; do
+        set_conf "$opt"
+    done
+    set_conf "SERVERS" "array"
+
+    # construct array with all the urls
+    #TODO: make this work when only one of FILE and SERVERS is defined
+    if [[ -n "$FILE" && -n "$SERVERS" ]]; then
+        urls=()
+        for s in "${SERVERS[@]}"; do urls+=( "$s/$FILE" ); done
+    fi
+
+    # set proxy
+    if [ "$PROXY" ];then
+        export http_proxy="$PROXY"
+        export https_proxy="$PROXY"
+    fi
+
+    # set interval
+    interval="${INTERVAL:-$interval}"
+}
+
+calculate_range () {
+    if [ "$start$end" ]; then
+        range="$start-$end"
+    else
+        range="-${COUNT:-${count:-4096}}"
+    fi
+
+    # check that the range has correct values
+    echo "$range" | grep -q "[0-9]*-[0-9]*" || usage 4
 }
 
 main () {
     configure "$@"
 
-    # prepare range
-    [ -n "$COUNT" ] && bytes="-$COUNT" || bytes="-4096"
-    [ -n "$count" ] && bytes="-$count"
-    [[ -n "$end" && -z "$start" ]] && bytes="0-$end"
-    [ -n "$start" ] && bytes="$start-$end"
+    calculate_range
 
-    # check that the range has correct values
-    echo "$bytes" | grep -q "[0-9]*-[0-9]*" || usage 4
-
-    # convert urls to array
-    count=${#urls[@]}
+    url_count=${#urls[@]}
 
     # get the data
     if [ "$follow" ]; then
-    for (( i=0; i<count; i++ )); do
-        lastlen[$i]="$(curl -s $OPTS -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
-        lastlen[$i]="$(( "${lastlen[$i]}" $bytes ))"
-    done;
-    while true; do
-        for (( i=0; i<$count; i++ )); do
-        len="$(curl -s $OPTS -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
-        [ "${lastlen[$i]}" != "$len" ] && $prep curl -s $OPTS -r "${lastlen[$i]}-" "${urls[$i]}"
-        lastlen[$i]="$len"
+        for (( i=0; i<url_count; i++ )); do
+            lastlen[$i]="$(curl -s "${OPTS[@]}" -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
+            lastlen[$i]="$(( "${lastlen[$i]}" $range ))"
+        done;
+        while true; do
+            for (( i=0; i<$url_count; i++ )); do
+                len="$(curl -s "${OPTS[@]}" -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
+                [ "${lastlen[$i]}" != "$len" ] && $prep curl -s "${OPTS[@]}" -r "${lastlen[$i]}-" "${urls[$i]}"
+                lastlen[$i]="$len"
+            done
+            sleep $interval
         done
-        sleep $interval
-    done
     else
-    $prep curl -s $OPTS -r "$bytes" "${urls[$i]}"
+        for (( i=0; i<url_count; i++ )); do
+            $prep curl -s $OPTS -r "$range" "${urls[$i]}"
+        done
     fi
 
     # add a newline, to make it look better in terminal in case when downloaded
