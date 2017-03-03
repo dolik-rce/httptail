@@ -1,0 +1,6 @@
+[submodule "test/test-more-bash"]
+	path = test/test-more-bash
+	url = https://github.com/ingydotnet/test-more-bash.git
+[submodule "test/rangehttpserver"]
+	path = test/rangehttpserver
+	url = https://github.com/smgoller/rangehttpserver.git
