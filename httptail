@@ -46,16 +46,17 @@ set_conf () {
     local N="${preset}_$1"
     if [ "${!N}" ]; then
         if [ "$2" = "array" ]; then
-            eval "$1=(\"\${$N[@]}\")"
+            eval "$1"='("${'"$N"'[@]}")'
         else
-            eval "$1=\"\$$N\""
+            eval "$1=\"$$N\""
         fi
     fi
 }
 
 parse_args () {
     # parse command line
-    while true; do
+    urls=()
+    while [ $# -gt 0 ]; do
     case "$1" in
     -f|--follow)   follow="1";     shift 1 ;;
     -i|--interval) interval="$2";  shift 2 ;;
@@ -65,21 +66,21 @@ parse_args () {
     -c|--config)   config="$2";    shift 2 ;;
     -p|--preset)   preset="${2}";  shift 2 ;;
     -P|--prepend)  prep="prepend"; shift 1 ;;
-    -x|--debug)    set -x;         shift 1 ;;
+    -x|--debug)    set -x; dbg=-v; shift 1 ;;
     -h|--help)     usage 0 ;;
-    *)             break ;;
+    *)             urls+=( "$1" ); shift 1 ;;
     esac
     done
-    urls=( "$@" )
 }
 
 configure () {
     interval=1
-    config="$$HOME/.httptailrc"
+    config="$HOME/.httptailrc"
 
     parse_args "$@"
 
-    if [[ "$count" && "$start" ]] || [[ "$count" && "$end" ]]; then
+    #TODO: allow start && follow
+    if [[ "$count" && "$start" ]] || [[ "$count" && "$end" ]] || [[ "$start" && "$follow" ]] || [[ "$end" && "$follow" ]]; then
         echo "Wrong combination of parameters!" >> /dev/stderr
         usage 3;
     fi
@@ -111,13 +112,25 @@ configure () {
     interval="${INTERVAL:-$interval}"
 }
 
-calculate_range () {
-    if [ "$start$end" ]; then
-        range="$start-$end"
-    else
-        range="-${COUNT:-${count:-4096}}"
-    fi
+get_length() {
+    curl "${dbg:---silent}" "${OPTS[@]}" --head "$1" | sed -n 's/\r//;s/Content-Length: //p;'
+}
 
+calculate_range () {
+    if [ "$start" ]; then
+        if [ "$end" ]; then
+            len="$(get_length "$1")"
+            range="$start-$(( len - end - 1 ))"
+        else
+            range="$start-"
+        fi
+    else
+        if [ "$end" ]; then
+            range="-$end"
+        else
+            range="-${count:-${COUNT:-4096}}"
+        fi
+    fi
     # check that the range has correct values
     echo "$range" | grep -q "[0-9]*-[0-9]*" || usage 4
 }
@@ -125,27 +138,26 @@ calculate_range () {
 main () {
     configure "$@"
 
-    calculate_range
-
     url_count=${#urls[@]}
 
     # get the data
     if [ "$follow" ]; then
         for (( i=0; i<url_count; i++ )); do
-            lastlen[$i]="$(curl -s "${OPTS[@]}" -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
-            lastlen[$i]="$(( "${lastlen[$i]}" $range ))"
+            lastlen[$i]="$(( "$(get_length "${urls[$i]}")" - ${count:-${COUNT:-4096}} ))"
+            lastlen[$i]="$(( "${lastlen[$i]}" > 0 ? "${lastlen[$i]}" : 0 ))"
         done;
         while true; do
-            for (( i=0; i<$url_count; i++ )); do
-                len="$(curl -s "${OPTS[@]}" -I "${urls[$i]}" | sed -n 's/\r//;s/Content-Length: //p;')"
-                [ "${lastlen[$i]}" != "$len" ] && $prep curl -s "${OPTS[@]}" -r "${lastlen[$i]}-" "${urls[$i]}"
+            for (( i=0; i<url_count; i++ )); do
+                len="$(get_length "${urls[$i]}")"
+                [ "${lastlen[$i]}" != "$len" ] && $prep curl "${dbg:---silent}" "${OPTS[@]}" --range "${lastlen[$i]}-" "${urls[$i]}"
                 lastlen[$i]="$len"
             done
             sleep $interval
         done
     else
         for (( i=0; i<url_count; i++ )); do
-            $prep curl -s $OPTS -r "$range" "${urls[$i]}"
+            calculate_range "${urls[$i]}"
+            $prep curl "${dbg:---silent}" "${OPTS[@]}" --range "$range" "${urls[$i]}"
         done
     fi
 
