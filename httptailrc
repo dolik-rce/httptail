@@ -10,7 +10,7 @@ COUNT=2048
 # PROXY=""
 
 ## additional options to curl (e.g. you can add "-u username:password" to use
-## authentication, and/or "-k" to allow insecure SSL connections)
+## authentication and/or "-k" to allow insecure SSL connections)
 ## Special value $(password_prompt) might be used if you don't want to store
 ## plaintext password in this configuration file
 # OPTS=("-k" "-u<username>:$(password_prompt)")
