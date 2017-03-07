@@ -1,6 +1,6 @@
 ### GLOBAL CONFIGURATION ###
 
-## interval between updates with -f, float value in seconds
+## interval between updates with --follow, float value in seconds
 INTERVAL=1.0
 
 ## default value of --count

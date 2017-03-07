@@ -75,7 +75,12 @@ parse_args () {
 
 configure () {
     interval=1
-    config="$HOME/.httptailrc"
+
+    if [ -e "$HOME/.httptailrc" ]; then
+        config="$HOME/.httptailrc"
+    else
+        config="/etc/httptailrc"
+    fi
 
     parse_args "$@"
 
