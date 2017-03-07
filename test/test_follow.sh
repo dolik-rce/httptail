@@ -11,8 +11,7 @@ fghij
 EOF
 
 start() {
-    "$ROOTDIR"/httptail --config "/dev/null" --interval 0.1 --follow "$SERVER/follow" > "$TMP/out" &
-    KILLCMD="kill $!"
+    KILLCMD="$("$ROOTDIR"/httptail --config "/dev/null" --interval 0.1 --follow "$SERVER/follow" > "$TMP/out" & echo "kill $!")"
     TRAPCMD="$KILLCMD; $TRAPCMD"
 }
 

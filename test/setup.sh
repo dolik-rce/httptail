@@ -14,9 +14,12 @@ if [ -z "$SERVER" ]; then
     rm -rf "$TMP"
     mkdir -p "$TMP"
     cd "$TMP" || exit 1
+    if netstat -ntl | grep -q '24680'; then
+        echo "ERROR: Something already runs on port 24680!" >> /dev/stderr
+        exit 1
+    fi
     PYTHON2="$(type -Pf python python2 | tail -n 1)"
-    PYTHONPATH="$ROOTDIR/test/rangehttpserver" "$PYTHON2" -m RangeHTTPServer 24680 &>/dev/null &
-    SERVERPID=$!
+    SERVERPID=$(PYTHONPATH="$ROOTDIR/test/rangehttpserver" "$PYTHON2" -m RangeHTTPServer 24680 &>/dev/null & echo $!)
     until netstat -ntl | grep -q '24680'; do sleep 0.1; done
     TRAPCMD="kill $SERVERPID; rm -rf '$TMP'"
     trap 'eval "$TRAPCMD"' EXIT
