@@ -42,15 +42,63 @@ password_prompt () {
   echo "$pwd"
 }
 
-set_conf () {
-    local N="${preset}_$1"
-    if [ "${!N}" ]; then
-        if [ "$2" = "array" ]; then
-            eval "$1"='("${'"$N"'[@]}")'
-        else
-            eval "$1=\"$$N\""
-        fi
+preset () {
+    case $NAME in
+        "")         PREFIX="GLOBAL" ;;
+        "$preset")  PREFIX="PRESET" ;;
+        *)          PREFIX="" ;;
+    esac
+    if [ "$PREFIX" ] ; then
+        for x in PROXY FILE COUNT INTERVAL; do
+            if [ "${!x+set}" ]; then
+                eval "${PREFIX}_$x=\"${!x}\""
+            fi
+        done
+        for x in SERVERS OPTS; do
+            local VAR="$x""[0]"
+            if [ "${!VAR+set}" ]; then
+                VAR="$x""[@]"
+                eval "${PREFIX}_$x"='("'"${!VAR}"'")'
+            fi
+        done
     fi
+    NAME="$1"
+    for x in PROXY FILE COUNT INTERVAL SERVERS OPTS; do
+        unset "$x"
+    done
+}
+
+coalesce () {
+    local OUT="$1";
+    shift
+    for ((i=1; i<=$#; i++)); do
+        local VAR="${!i}"
+        [ "${!VAR+set}" ] || continue
+        eval "$OUT=\"${!VAR}\""
+        return
+    done
+}
+
+coalesce_array () {
+    local OUT="$1"
+    shift
+    for ((i=1; i<=$#; i++)); do
+        local VAR="${!i}[*]"
+        [ "${!VAR+set}" ] || continue
+        VAR="${!i}[@]"
+        eval "$OUT=(\"""${!VAR}""\")"
+        return
+    done
+}
+
+merge_config () {
+    coalesce PROXY             PRESET_PROXY    GLOBAL_PROXY
+    coalesce FILE              PRESET_FILE     GLOBAL_FILE
+    coalesce COUNT    count    PRESET_COUNT    GLOBAL_COUNT    DEFAULT_COUNT
+    coalesce INTERVAL interval PRESET_INTERVAL GLOBAL_INTERVAL DEFAULT_INTERVAL
+
+    coalesce_array SERVERS PRESET_SERVERS GLOBAL_SERVERS
+    coalesce_array OPTS    PRESET_OPTS    GLOBAL_OPTS
 }
 
 parse_args () {
@@ -74,7 +122,8 @@ parse_args () {
 }
 
 configure () {
-    interval=1
+    DEFAULT_COUNT=4096
+    DEFAULT_INTERVAL=1
 
     if [ -e "$HOME/.httptailrc" ]; then
         config="$HOME/.httptailrc"
@@ -84,7 +133,7 @@ configure () {
 
     parse_args "$@"
 
-    #TODO: allow start && follow
+    #TODO: allow start && follow and combinations with count
     if [[ "$count" && "$start" ]] || [[ "$count" && "$end" ]] || [[ "$start" && "$follow" ]] || [[ "$end" && "$follow" ]]; then
         echo "Wrong combination of parameters!" >> /dev/stderr
         usage 3;
@@ -93,16 +142,13 @@ configure () {
     # read configuration file
     # shellcheck source=httptailrc
     . "$config"
+    preset
 
-    #set additional konfiguration based on preset passed on commandline
-    for opt in PROXY OPTS INTERVAL COUNT FILE; do
-        set_conf "$opt"
-    done
-    set_conf "SERVERS" "array"
+    merge_config
 
     # construct array with all the urls
     #TODO: make this work when only one of FILE and SERVERS is defined
-    if [[ -n "$FILE" && -n "$SERVERS" ]]; then
+    if [[ -n "$FILE" && -n "${SERVERS[0]}" ]]; then
         urls=()
         for s in "${SERVERS[@]}"; do urls+=( "$s/$FILE" ); done
     fi

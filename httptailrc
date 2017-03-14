@@ -23,10 +23,11 @@ COUNT=2048
 ## the global variables, there are two more variables: FILE and SERVERS. 
 ## See following example: 
 
-# example_SERVERS=( "http://example1.com" \
-#                   "http://example2.com" \
-#                   "http://example3.com" )
-# example_FILE="some/path/example.log"
-# example_PROXY="proxy.example.com:3128"
-# example_OPTS="-u username:password"
+# preset example
+#     SERVERS=( "http://example1.com" \
+#               "http://example2.com" \
+#               "http://example3.com" )
+#     FILE="some/path/example.log"
+#     PROXY="proxy.example.com:3128"
+#     OPTS=("-u" "username:password")
 
