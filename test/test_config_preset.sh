@@ -3,13 +3,15 @@
 # shellcheck source=test/setup.sh
 . "$(dirname "$0")/setup.sh"
 
-plan tests 20
+plan tests 22
 
 cat > "$TMP/conf" <<EOF
 INTERVAL=4
 COUNT=1234
 PROXY=proxy:3128
 OPTS=("-k")
+USER=john
+PASSWORD="ASK"
 
 preset p
     INTERVAL=8
@@ -18,6 +20,8 @@ preset p
     OPTS=("-opt")
     FILE="filename"
     SERVERS=("1.example.com" "2.example.com")
+    USER=joe
+    PASSWORD="secret"
 
 preset q
     INTERVAL=16
@@ -55,6 +59,8 @@ test_variable "COUNT" "4321"
 test_variable "PROXY" ""
 test_variable "http_proxy" ""
 test_variable "https_proxy" ""
-test_variable "OPTS[*]" "-opt"
+test_variable "USER" "joe"
+test_variable "PASSWORD" "secret"
+test_variable "OPTS[*]" "-opt --user joe:secret"
 test_variable "FILE" "filename"
 test_variable "SERVERS[*]" "1.example.com 2.example.com"

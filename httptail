@@ -37,9 +37,9 @@ prepend () {
 }
 
 password_prompt () {
-  echo "Password required:" > /dev/stderr;
-  read -r -s pwd;
-  echo "$pwd"
+    # shellcheck disable=SC2016
+    echo "Password${USER:+ for '$USER'}:"
+    read -r -s PASSWORD;
 }
 
 preset () {
@@ -49,7 +49,7 @@ preset () {
         *)          PREFIX="" ;;
     esac
     if [ "$PREFIX" ] ; then
-        for x in PROXY FILE COUNT INTERVAL; do
+        for x in PROXY FILE COUNT INTERVAL USER PASSWORD; do
             if [ "${!x+set}" ]; then
                 eval "${PREFIX}_$x=\"${!x}\""
             fi
@@ -63,7 +63,7 @@ preset () {
         done
     fi
     NAME="$1"
-    for x in PROXY FILE COUNT INTERVAL SERVERS OPTS; do
+    for x in PROXY FILE COUNT INTERVAL USER PASSWORD SERVERS OPTS; do
         unset "$x"
     done
 }
@@ -96,6 +96,8 @@ merge_config () {
     coalesce FILE              PRESET_FILE     GLOBAL_FILE
     coalesce COUNT    count    PRESET_COUNT    GLOBAL_COUNT    DEFAULT_COUNT
     coalesce INTERVAL interval PRESET_INTERVAL GLOBAL_INTERVAL DEFAULT_INTERVAL
+    coalesce USER              PRESET_USER     GLOBAL_USER
+    coalesce PASSWORD          PRESET_PASSWORD GLOBAL_PASSWORD
 
     coalesce_array SERVERS PRESET_SERVERS GLOBAL_SERVERS
     coalesce_array OPTS    PRESET_OPTS    GLOBAL_OPTS
@@ -145,6 +147,14 @@ configure () {
     preset
 
     merge_config
+
+    # process login information
+    if [ "$PASSWORD" = "ASK" ]; then
+        password_prompt
+    fi
+    if [ "$USER" ] || [ "$PASSWORD" ]; then
+        OPTS+=("--user" "$USER:$PASSWORD")
+    fi
 
     # construct array with all the urls
     #TODO: make this work when only one of FILE and SERVERS is defined

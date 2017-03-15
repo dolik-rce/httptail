@@ -9,6 +9,11 @@ COUNT=2048
 ## proxy settings
 # PROXY=""
 
+# User name and password for server authentication. Special value "ASK" may be
+# used for password to show interactive password prompt.
+# USER="joe"
+# PASSWORD="ASK"
+
 ## additional options to curl (e.g. you can add "-u username:password" to use
 ## authentication and/or "-k" to allow insecure SSL connections)
 ## Special value $(password_prompt) might be used if you don't want to store
@@ -23,11 +28,13 @@ COUNT=2048
 ## the global variables, there are two more variables: FILE and SERVERS. 
 ## See following example: 
 
-# preset example
-#     SERVERS=( "http://example1.com" \
-#               "http://example2.com" \
-#               "http://example3.com" )
-#     FILE="some/path/example.log"
-#     PROXY="proxy.example.com:3128"
-#     OPTS=("-u" "username:password")
+preset example
+    SERVERS=( "http://example1.com" \
+              "http://example2.com" \
+              "http://example3.com" )
+    FILE="some/path/example.log"
+    PROXY="proxy.example.com:3128"
+    OPTS=("-u" "username:password")
+    USER="joe"
+    PASSWORD="not_very_secret"
 
