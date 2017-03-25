@@ -153,7 +153,15 @@ configure () {
         password_prompt
     fi
     if [ "$USER" ] || [ "$PASSWORD" ]; then
-        OPTS+=("--user" "$USER:$PASSWORD")
+        # to hide the password from debug log, we create unnamed file
+        # and pass its file descriptor to curl as config
+        # TODO: try this without even the fd (using curl -K - <<<"user = $USER:$PASSWORD")
+        local TMPDATA
+        TMPDATA="$(mktemp)"
+        exec 9<> "$TMPDATA"
+        rm "$TMPDATA"
+        cat <<<"user = $USER:$PASSWORD" > /dev/fd/9
+        OPTS+=('--config' '/dev/fd/9')
     fi
 
     # construct array with all the urls

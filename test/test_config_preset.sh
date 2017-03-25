@@ -36,9 +36,8 @@ test_variable () {
 
 # shellcheck source=httptail
 . "$TMP/patched_httptail"
-set -x
+
 configure --config "$TMP/conf" --preset p
-set +x
 
 test_variable "GLOBAL_INTERVAL" "4"
 test_variable "GLOBAL_COUNT" "1234"
@@ -61,6 +60,6 @@ test_variable "http_proxy" ""
 test_variable "https_proxy" ""
 test_variable "USER" "joe"
 test_variable "PASSWORD" "secret"
-test_variable "OPTS[*]" "-opt --user joe:secret"
+test_variable "OPTS[*]" '-opt --config /dev/fd/9'
 test_variable "FILE" "filename"
 test_variable "SERVERS[*]" "1.example.com 2.example.com"
