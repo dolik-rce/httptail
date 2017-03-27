@@ -10,14 +10,12 @@ usage () {
     echo "    -c|--config FILE      read defaults and options from FILE,"
     echo "                          defaults to \$HOME/.httptailrc"
     echo "    -p|--preset STRING    selects named preset from configuration file"
-    echo "    -n|--count NUM        output last NUM bytes, defaults to 4096"
+    echo "    -n|--count NUM        output at most NUM bytes, defaults to 4096"
     echo "    -f|--follow           append data to the output as the file grows"
     echo "    -i|--interval NUM     check for updates every NUM seconds, defaults to 1,"
     echo "                          only makes sense with --follow"
-    echo "    -s|--start NUM        output starts at byte NUM, defaults to 0,"
-    echo "                          this option is mutually exclusive with --count"
-    echo "    -e|--end NUM          output ends at byte NUM, defaults to end of file,"
-    echo "                          this option is mutually exclusive with --count"
+    echo "    -s|--start NUM        output starts at byte NUM, defaults to 0"
+    echo "    -e|--end NUM          output ends at byte NUM, defaults to end of file"
     echo "    -P|--prepend          prefix each line with file url"
     echo "    -x|--debug            debug mode"
     echo "    -h|--help             print help (this text)"
@@ -135,8 +133,8 @@ configure () {
 
     parse_args "$@"
 
-    #TODO: allow start && follow and combinations with count
-    if [[ "$count" && "$start" ]] || [[ "$count" && "$end" ]] || [[ "$start" && "$follow" ]] || [[ "$end" && "$follow" ]]; then
+    #TODO: allow start && follow
+    if [[ "$start" && "$follow" ]] || [[ "$end" && "$follow" ]]; then
         echo "Wrong combination of parameters!" >> /dev/stderr
         usage 3;
     fi
@@ -184,22 +182,37 @@ get_length() {
 }
 
 calculate_range () {
+    local -i L S E C
+    L="$(get_length "$1")"
+    S="$start"
+    E="$end"
+    C="$count"
+
     if [ "$start" ]; then
         if [ "$end" ]; then
-            len="$(get_length "$1")"
-            range="$start-$(( len - end - 1 ))"
+            if [ "$count" ]; then
+                range="$((S>E-C ? S : E-C+1))-$E"
+            else
+                range="$S-$E"
+            fi
         else
-            range="$start-"
+            if [ "$count" ]; then
+                range="$S-$((S+C))"
+            else
+                range="$S-"
+            fi
         fi
     else
         if [ "$end" ]; then
-            range="-$end"
+            if [ "$count" ]; then
+                range="$((E-C+1 > 0 ? E-C+1 : 0))-$E"
+            else
+                range="0-$E"
+            fi
         else
-            range="-${count:-${COUNT:-4096}}"
+            range="-${count:-$DEFAULT_COUNT}"
         fi
     fi
-    # check that the range has correct values
-    echo "$range" | grep -q "[0-9]*-[0-9]*" || usage 4
 }
 
 main () {

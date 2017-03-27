@@ -23,6 +23,6 @@ param_test() {
 param_test "$(cat "$TMP/data"; echo)"
 param_test "$(tail -c 20 "$TMP/data"; echo)" --count 20
 param_test "$(tail -c 30 "$TMP/data"; echo)" --start 10
-param_test "$(tail -c 10 "$TMP/data"; echo)" --end 10
-param_test "$(tail -c 25 "$TMP/data" | head -c 15; echo)" --start 15 --end 10
+param_test "$(dd if="$TMP/data" bs=1 count=11 2> /dev/null; echo)" --end 10
+param_test "$(dd if="$TMP/data" bs=1 skip=15 count=11 2> /dev/null; echo)" --start 15 --end 25
 param_test "$(sed "s|^|$SERVER/data: |" "$TMP/data"; echo)" --prepend
