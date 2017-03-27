@@ -152,17 +152,6 @@ configure () {
     if [ "$PASSWORD" = "ASK" ]; then
         password_prompt
     fi
-    if [ "$USER" ] || [ "$PASSWORD" ]; then
-        # to hide the password from debug log, we create unnamed file
-        # and pass its file descriptor to curl as config
-        # TODO: try this without even the fd (using curl -K - <<<"user = $USER:$PASSWORD")
-        local TMPDATA
-        TMPDATA="$(mktemp)"
-        exec 9<> "$TMPDATA"
-        rm "$TMPDATA"
-        cat <<<"user = $USER:$PASSWORD" > /dev/fd/9
-        OPTS+=('--config' '/dev/fd/9')
-    fi
 
     # construct array with all the urls
     #TODO: make this work when only one of FILE and SERVERS is defined
@@ -181,8 +170,17 @@ configure () {
     interval="${INTERVAL:-$interval}"
 }
 
+wcurl() {
+    if [ "$USER" ] || [ "$PASSWORD" ]; then
+        # to hide the password from debug log, we pass it to curl as config
+        curl "${dbg:---silent}" "${OPTS[@]}" --config - "$@" <<<"user = $USER:$PASSWORD"
+    else
+        curl "${dbg:---silent}" "${OPTS[@]}" "$@"
+    fi
+}
+
 get_length() {
-    curl "${dbg:---silent}" "${OPTS[@]}" --head "$1" | sed -n 's/\r//;s/Content-Length: //p;'
+    wcurl --head "$1" | sed -n 's/\r//;s/Content-Length: //p;'
 }
 
 calculate_range () {
@@ -218,7 +216,7 @@ main () {
         while true; do
             for (( i=0; i<url_count; i++ )); do
                 len="$(get_length "${urls[$i]}")"
-                [ "${lastlen[$i]}" != "$len" ] && $prep curl "${dbg:---silent}" "${OPTS[@]}" --range "${lastlen[$i]}-" "${urls[$i]}"
+                [ "${lastlen[$i]}" != "$len" ] && $prep wcurl --range "${lastlen[$i]}-" "${urls[$i]}"
                 lastlen[$i]="$len"
             done
             sleep $interval
@@ -226,7 +224,7 @@ main () {
     else
         for (( i=0; i<url_count; i++ )); do
             calculate_range "${urls[$i]}"
-            $prep curl "${dbg:---silent}" "${OPTS[@]}" --range "$range" "${urls[$i]}"
+            $prep wcurl --range "$range" "${urls[$i]}"
         done
     fi
 

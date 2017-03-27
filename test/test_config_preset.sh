@@ -60,6 +60,6 @@ test_variable "http_proxy" ""
 test_variable "https_proxy" ""
 test_variable "USER" "joe"
 test_variable "PASSWORD" "secret"
-test_variable "OPTS[*]" '-opt --config /dev/fd/9'
+test_variable "OPTS[*]" '-opt'
 test_variable "FILE" "filename"
 test_variable "SERVERS[*]" "1.example.com 2.example.com"

@@ -60,6 +60,6 @@ test_variable "http_proxy" "proxy:3128"
 test_variable "https_proxy" "proxy:3128"
 test_variable "USER" "jack"
 test_variable "PASSWORD" "secret"
-test_variable "OPTS[*]" '-k --config /dev/fd/9'
+test_variable "OPTS[*]" '-k'
 test_variable "FILE" ""
 test_variable "SERVERS[*]" ""

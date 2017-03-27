@@ -47,5 +47,5 @@ test_variable "GLOBAL_PASSWORD" "ASK"
 test_variable "GLOBAL_SERVERS[*]" ""
 
 test_variable "PASSWORD" "P4SSW0RD"
-test_variable "OPTS[*]" '-k --config /dev/fd/9'
+test_variable "OPTS[*]" '-k'
 
